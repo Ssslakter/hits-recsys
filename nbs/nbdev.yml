@@ -1,0 +1,9 @@
+project:
+  output-dir: _docs
+
+website:
+  title: "hits-recsys"
+  site-url: "https://Ssslakter.github.io/hits-recsys"
+  description: "recommender system lab from 2024 HITs ML course"
+  repo-branch: main
+  repo-url: "https://github.com/Ssslakter/hits-recsys"
