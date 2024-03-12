@@ -1,0 +1,7 @@
+website:
+  sidebar:
+    contents:
+      - index.ipynb
+      - 01_collab.ipynb
+      - 02_learner.ipynb
+      - 03_api.ipynb

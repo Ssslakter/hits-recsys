@@ -1,6 +1,6 @@
 _docs/
 _proc/
-
+.conda
 *.bak
 .gitattributes
 .last_checked
@@ -13,7 +13,7 @@ _tmp*
 tmp*
 tags
 *.pkg
-
+.history
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -21,7 +21,7 @@ __pycache__/
 
 # C extensions
 *.so
-
+*/models/
 # Distribution / packaging
 .Python
 env/
