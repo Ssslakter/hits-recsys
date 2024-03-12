@@ -21,7 +21,7 @@ def read_movielens(ratings_path, movies_path):
 # %% ../nbs/01_collab.ipynb 15
 class SavePkl:
     def save(self,fname='./out.pkl'):
-        Path(fname).mkdir(parents=True,exist_ok=True)
+        Path(fname).parent.mkdir(parents=True,exist_ok=True)
         with open(fname,'wb') as f:
             save_pickle(f, self)
     def load(self,fname):
