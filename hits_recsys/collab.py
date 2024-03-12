@@ -4,11 +4,12 @@
 __all__ = ['read_movielens', 'SavePkl', 'normalize', 'CollabUserBased', 'train', 'pred', 'eval']
 
 # %% ../nbs/01_collab.ipynb 3
-from fastprogress import fastprogress
+from fastprogress.fastprogress import progress_bar
 import pandas as pd
 import torch, torch.nn.functional as F
 from torch import tensor
-from fastai.learner import to_device
+from fastai.learner import to_device, default_device
+from fastcore.all import *
 
 # %% ../nbs/01_collab.ipynb 7
 def read_movielens(ratings_path, movies_path):
