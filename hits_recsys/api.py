@@ -3,7 +3,7 @@
 # %% auto 0
 __all__ = ['cli']
 
-# %% ../nbs/03_api.ipynb 1
+# %% ../nbs/03_api.ipynb 2
 import pandas as pd
 import logging
 from fastcore.all import *
@@ -12,25 +12,35 @@ from pathlib import Path
 from typing import Literal, Optional
 from fastai.collab import CollabDataLoaders, to_device
 
-# %% ../nbs/03_api.ipynb 2
+# %% ../nbs/03_api.ipynb 3
 @call_parse
-def cli(type: Literal['trian','eval','pred'], 
-        ratings_path=Path('./data/ratings.dat'), 
-        movies_path=Path('./data/movies.dat'),
-        model: Optional[Path]=None,
-        out: Path = None):
+def cli(optype, # operation to peroform, one of 'train', 'eval' or 'pred'
+        r_path, # path to dataset with ratings
+        m_path,  # path to dataset with movie titles
+        model: Optional[Path]=None, # path to model if not train
+        out: Path = './out.pkl'):  # path for output model, by default will save to './out.pkl'
+    assert optype in ['train','eval','pred'], 'incorrect operation type'
     
-    if not pred: df = read_movielens(ratings_path,movies_path)
-    else: df = pd.read_csv()
-    dls = CollabDataLoaders.from_df(df, item_name='title', bs=64,valid_pct=0.0)
+    logging.info(f"loading datasets from {r_path} and {m_path}")
+    df = read_movielens(r_path,m_path)
+    logging.info(f"datasets loaded")
+    
+    dls = dataloaders(df)
     m = CollabUserBased()
     
-    logging.info(f"loaded ratings and movies from {ratings_path} and {movies_path}")
-    if type=='train':
+    logging.info(f"start operation: {optype}")
+    if optype=='train':
         train(m, dls, out)
-    if type=='eval':
-        loss = eval(m,dls,model)
+        logging.info(f"model trained and saved to {out}")
+   
+    assert model is not None, 'model path must be not None'
+    m.load(model)
+    if optype=='eval':
+        dls = dataloaders(df, bs=1024)
+        loss = eval(m,dls.train)
         logging.info(f"loss = {loss.item()}")
-    if type=='pred':
-        preds = pred(m,dls,model)
-        preds.save()
+    if optype=='pred':
+        tdl = dls.test_dl(df[['userId','title']],bs=1024)
+        preds = pred(m,tdl)
+        logging.info(f"preds are saved to {out}")
+        return preds
