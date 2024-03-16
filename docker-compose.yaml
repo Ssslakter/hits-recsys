@@ -1,9 +1,16 @@
 version: '3'
 services:
   app:
-    build:
-      context: .
+    build: .
     ports:
-      - 8080:80
+      - "5000:5000"
     volumes:
-      - ./nbs/models:/app/nbs/models
+      - ./logs:/app/logs
+      - ./models:/app/models
+    deploy:
+      resources:
+          reservations:
+            devices:
+              - driver: nvidia
+                count: 1
+                capabilities: [gpu]
