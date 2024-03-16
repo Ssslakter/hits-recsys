@@ -7,8 +7,29 @@ Collaborative filtration with some devops stuff
 
 ## Install
 
+To install with pip run
+
 ``` sh
-pip install hits_recsys
+pip install hits-recsys
 ```
 
-## How to use
+## Contributing
+
+If you plan to contribute, you can install editable:
+
+``` sh
+git clone https://github.com/Ssslakter/hits-recsys
+pip install -e ".[dev]"
+```
+
+## Start server in a docker container
+
+To start with docker you can use
+[docker-compose.yaml](../docker-compose.yaml) wich would build an image
+and start a web-server
+
+``` sh
+git clone https://github.com/Ssslakter/hits-recsys
+cd hits-recsys
+docker compose up
+```
