@@ -12,5 +12,3 @@ pip install hits_recsys
 ```
 
 ## How to use
-
-Somehow=)

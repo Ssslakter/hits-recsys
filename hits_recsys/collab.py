@@ -21,7 +21,7 @@ class SavePT:
         Path(fname).parent.mkdir(parents=True,exist_ok=True)
         torch.save(self, fname)
     def load(self, fname):
-        self.__dict__.update(torch.load(fname).__dict__)
+        self.__dict__.update(torch.load(fname, map_location=default_device()).__dict__)
     
     @classmethod
     def from_folder(cls, dir, **kwargs):
@@ -30,7 +30,7 @@ class SavePT:
         obj = cls(**kwargs)
         patterns = chain(*L('**/*.pt', '**/*.pth').map(dir.glob))
         for fname in patterns:
-            o = torch.load(fname)
+            o = torch.load(fname, map_location=default_device())
             setattr(obj, fname.stem, o)
         return obj
 
@@ -107,6 +107,14 @@ class ModelService(SavePT):
         self.ds = ds
     def _movie_enc(self, movies): 
         return tensor(self.ds.encode(movies) if isinstance(movies[0],str) else movies, device=self.model.device)
+    
+    def save(self, dir):
+        dir = Path(dir)
+        self.ds.save(dir/'ds.pt')
+        self.model.save(dir/'model.pt')
+    
+    def load(self, dir):
+        self.__dict__ = self.from_folder(dir).__dict__
         
     def train(self, ds=None, model = None):
         '''Train model from scratch on dataset'''
