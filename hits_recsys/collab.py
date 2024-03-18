@@ -10,42 +10,39 @@ import torch, torch.nn.functional as F
 from torch import tensor
 from fastai.collab import to_device, default_device, CategoryMap, DataLoader
 from fastcore.all import *
-from itertools import chain
 
 # %% ../nbs/01_collab.ipynb 4
 @patch
 def pprint(l: L): print('\n'.join(l.map(str)))
 
 class SavePT:
-    def save(self, fname):
+    '''Class to save and load PyTorch models or objects'''
+    def save(self, fname: str|Path):
+        '''Save the model to a file.'''
         Path(fname).parent.mkdir(parents=True,exist_ok=True)
         torch.save(self, fname)
-    def load(self, fname):
-        self.__dict__.update(torch.load(fname, map_location=default_device()).__dict__)
-    
-    @classmethod
-    def from_folder(cls, dir, **kwargs):
-        '''Loads attributes from pt,pth files, filenames are mapped to attr names'''
-        dir = Path(dir)
-        obj = cls(**kwargs)
-        patterns = chain(*L('**/*.pt', '**/*.pth').map(dir.glob))
-        for fname in patterns:
-            o = torch.load(fname, map_location=default_device())
-            setattr(obj, fname.stem, o)
-        return obj
+    def load(self, fname: str|Path):
+        '''Load the model from a file.'''
+        obj = torch.load(fname, map_location=default_device())
+        assert self.__class__ == obj.__class__, "Class missmatch"
+        self.__dict__.update(obj.__dict__)
 
 # %% ../nbs/01_collab.ipynb 8
-def read_movielens(ratings_path, movies_path):
-    kw1 = dict(sep='::', names = ['userId','movieId','rating'], usecols=(0,1,2), engine='python')
-    kw2 = kw1 | dict(names = ['movieId','title'], usecols=(0,1), encoding='ISO-8859-1')
+def read_movielens(ratings_path: str, movies_path: str) -> pd.DataFrame:
+    """
+    Reads the MovieLens dataset from the given ratings and movies files and merges them based on the movieId.
+    """
+    kw1 = dict(sep='::', names=['userId', 'movieId', 'rating'], usecols=(0, 1, 2), engine='python')
+    kw2 = kw1 | dict(names=['movieId', 'title'], usecols=(0, 1), encoding='ISO-8859-1')
     r, m = pd.read_csv(ratings_path, **kw1), pd.read_csv(movies_path, **kw2)
     return r.merge(m)
 
 # %% ../nbs/01_collab.ipynb 12
 class TfmdDataset(SavePT):
-    def __init__(self, df):
-        self.movie_map = CategoryMap(df.title)
-        self.user_map =  CategoryMap(df.userId)
+    '''Dataset with mapped usres and movies'''
+    def __init__(self, df, movie_map = None, user_map=None):
+        self.movie_map = ifnone(movie_map,CategoryMap(df.title))
+        self.user_map = ifnone(user_map,CategoryMap(df.userId))
         self.xs = tensor([self.user_map.map_objs(df.userId), self.movie_map.map_objs(df.title)]).T
         if hasattr(df, 'rating'): self.ys = tensor(df.rating, dtype=torch.float32)
     def encode(self, movies): return self.movie_map.map_objs(movies)
@@ -54,8 +51,13 @@ class TfmdDataset(SavePT):
         return (self.xs[i],self.ys[i]) if hasattr(self,'ys') else (self.xs[i],)
     def __len__(self): return len(self.xs)
     @delegates(DataLoader.__init__)
-    def dls(self,bs=64, **kwargs):
-        return DataLoader(self, batch_size=bs, **kwargs)
+    def dls(self, bs=64, **kwargs):
+        '''Create a DataLoader with the given batch size'''
+        return DataLoader(self, bs=bs, **kwargs)
+    
+    def test_ds(self, test_df): 
+        '''Create a test dataset with the given DataFrame'''
+        return self.__class__(test_df, self.movie_map,self.user_map)
 
 # %% ../nbs/01_collab.ipynb 17
 class CollabUserBased(SavePT):
@@ -67,6 +69,7 @@ class CollabUserBased(SavePT):
     def denorm(self, x, m, std=None): return x*std+m if std else x*m+m
     
     def fit(self, ds):
+        '''Fit the model to the given dataset'''
         A = to_device(torch.sparse_coo_tensor(ds.xs.T,ds.ys,dtype=torch.float32).to_dense())
         self.means = A.sum(dim=1)/A.count_nonzero(dim=1)
         mask = A!=0
@@ -75,6 +78,7 @@ class CollabUserBased(SavePT):
         self.A = A
 
     def predict(self, xb, yb=None):
+        '''Predict the ratings for batch and calculate the loss if yb is given'''
         u, m = xb.T
         means = self.means[u]
         u, m = self.A[u], self.A[:,m].T
@@ -83,7 +87,9 @@ class CollabUserBased(SavePT):
         if yb is not None: return (ratings, F.mse_loss(ratings,yb))
         return ratings
 
-    def recommend(self, movies, ratings, topk=5, filter_seen=True):
+    def recommend(self, movies: tensor, ratings: tensor, topk: int=5, filter_seen=True):
+        '''Recommend topk movies based on the given ratings. \n
+        If filter_seen is True, the movies that are already rated will be filtered out'''
         u = self.user_embed(movies, ratings)
         # res = self.denorm(((self.A @ u) @ self.A)/(self.A!=0).sum(0), ratings.mean()) works for ratings but not for recommendations
         res = self.denorm(((self.A @ u) @ self.A), ratings.mean())
@@ -92,16 +98,18 @@ class CollabUserBased(SavePT):
         mask = ~torch.isin(res.indices,movies)
         return (res[0][mask][:topk], res[1][mask][:topk])
 
-    def user_embed(self, movies, ratings):
+    def user_embed(self, movies: tensor, ratings: tensor):
         emb = torch.zeros(self.A.shape[-1], device=self.device)
         emb[movies] = self.norm(ratings, ratings.mean())
         return emb
 
     def similar_movies(self, movie_id: int, topk=5):
+        '''Return topk similar movies to the given movie_id'''
         return (self.A[:,movie_id].squeeze(-1) @ self.A).topk(topk+1).indices[1:]
 
 # %% ../nbs/01_collab.ipynb 28
-class ModelService(SavePT):
+class ModelService:
+    '''Service class for model training, evaluation and predictions. It also provides methods for saving and loading the model.'''
     def __init__(self, model: CollabUserBased=None, ds=None):
         self.model = model
         self.ds = ds
@@ -113,8 +121,12 @@ class ModelService(SavePT):
         self.ds.save(dir/'ds.pt')
         self.model.save(dir/'model.pt')
     
-    def load(self, dir):
-        self.__dict__ = self.from_folder(dir).__dict__
+    @classmethod
+    def load(cls, dir, model):
+        dir = Path(dir)
+        model.load(dir/'model.pt')
+        ds = torch.load(dir/'ds.pt')
+        return cls(model, ds)
         
     def train(self, ds=None, model = None):
         '''Train model from scratch on dataset'''
