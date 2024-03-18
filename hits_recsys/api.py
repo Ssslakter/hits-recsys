@@ -38,7 +38,7 @@ class LoggingQueue(deque):
     '''deque with `logging.Handler` api methods'''
     def put_nowait(self, rec): self.append(rec.message)
 
-# %% ../nbs/02_api.ipynb 12
+# %% ../nbs/02_api.ipynb 11
 MODEL_CLASS = CollabUserBased
 
 @call_parse
@@ -77,13 +77,13 @@ def cli(optype, # operation to peroform, one of 'train', 'eval' or 'pred'
             f.writelines([f"{line}\n" for line in res])
         l.info(f"preds are saved to {out}")
 
-# %% ../nbs/02_api.ipynb 18
+# %% ../nbs/02_api.ipynb 17
 class PredictRequest(BaseModel):
     '''Request for prediction'''
     movie_names: list
     ratings: list
 
-# %% ../nbs/02_api.ipynb 19
+# %% ../nbs/02_api.ipynb 18
 def add_routes(app, serv):
     @app.get("/api/predict")
     async def predict(body: PredictRequest):
@@ -111,7 +111,7 @@ def add_routes(app, serv):
     async def info():
         return dict(metadata.metadata('hits-recsys'))
 
-# %% ../nbs/02_api.ipynb 20
+# %% ../nbs/02_api.ipynb 19
 def add_logging(app, q): 
     @app.get("/api/log")
     async def log(page: int = -1, n_logs: int = 20):
@@ -119,7 +119,7 @@ def add_logging(app, q):
         tail = (page+1)*n_logs
         return {'logs': logs[max(page*n_logs,-len(logs)) : None if tail<=0 else tail]}
 
-# %% ../nbs/02_api.ipynb 21
+# %% ../nbs/02_api.ipynb 20
 @call_parse
 def serve(host='127.0.0.1',
           port=5000, # port to listen on
