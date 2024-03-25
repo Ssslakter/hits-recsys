@@ -6,9 +6,10 @@ __all__ = ['SavePT', 'read_movielens', 'TfmdDataset', 'CollabUserBased', 'ModelS
 # %% ../nbs/01_collab.ipynb 3
 from fastprogress.fastprogress import progress_bar
 import pandas as pd
+import numpy as np
 import torch, torch.nn.functional as F
 from torch import tensor
-from fastai.collab import to_device, default_device, CategoryMap, DataLoader
+from fastai.collab import to_device, to_cpu, default_device, CategoryMap, DataLoader
 from fastcore.all import *
 
 # %% ../nbs/01_collab.ipynb 4
@@ -88,7 +89,7 @@ class CollabUserBased(SavePT):
         u, m = self.A[u], self.A[:,m].T
         # cosine similarity
         u /= u.norm(dim=1)[:,None]
-        normed = (A/A.norm(dim=1)[:,None]).T
+        normed = (self.A/self.A.norm(dim=1)[:,None]).T
         ratings = torch.bmm((u @ normed)[:,None,:], m[...,None]).squeeze()/torch.count_nonzero(m, dim=1)**0.5
         ratings = self.denorm(ratings,  self.means[xb.T[0]], self.std[xb.T[0]])
         if yb is not None: return (ratings, F.mse_loss(ratings,yb))
