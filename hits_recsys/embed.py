@@ -31,6 +31,7 @@ class EmbeddingDotBias(Module):
 
 # %% ../nbs/03_embed.ipynb 19
 class EmbedAdapter:
+    '''Adapter for embedding model to support api for collaboritive filtering with matrix'''
     def __init__(self, device=None): 
         self.device = ifnone(device, default_device())
         
@@ -45,10 +46,10 @@ class EmbedAdapter:
     def norm(self, x, m, std=None): return (x-m)/std if std else (x-m)/m
     
     @delegates(Learner.fit)
-    def fit(self, ds, n_epoch=5, lr=5e-3, wd=0.1, bs=512, **kwargs):
+    def fit(self, ds, n_epoch=5, lr=6e-3, wd=0.1, bs=512, **kwargs):
         self.model = EmbeddingDotBias(50, len(ds.user_map), len(ds.movie_map), y_range=(0,5.5)).to(self.device)
         train, val = RandomSubsetSplitter(train_sz=0.9, valid_sz=0.1)(ds)
-        dls = DataLoaders.from_dsets(Subset(ds,train),Subset(ds,val), bs=bs)
+        dls = DataLoaders.from_dsets(ds,Subset(ds,val), bs=bs)
         self.learn = Learner(dls, self.model, loss_func=MSELossFlat())
         self.learn.fit_one_cycle(n_epoch, lr, wd=wd, **kwargs)
 

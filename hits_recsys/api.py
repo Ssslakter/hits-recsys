@@ -9,12 +9,12 @@ import logging as l
 from fastcore.all import *
 from .collab import *
 from pathlib import Path
-from typing import Optional
 from fastapi import FastAPI
 from pydantic import BaseModel
 from importlib import metadata
 import uvicorn
 from datetime import date
+from .embed import EmbedAdapter
 
 # %% ../nbs/02_api.ipynb 5
 DEF_FMT = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
@@ -38,14 +38,15 @@ class LoggingQueue(deque):
     '''deque with `logging.Handler` api methods'''
     def put_nowait(self, rec): self.append(rec.message)
 
-# %% ../nbs/02_api.ipynb 11
-MODEL_CLASS = CollabUserBased
+# %% ../nbs/02_api.ipynb 12
+MODEL_CLASS ={'collab': CollabUserBased, 'embed': EmbedAdapter}
 
 @call_parse
 def cli(optype, # operation to peroform, one of 'train', 'eval' or 'pred'
         r_path, # path to dataset with ratings
         m_path,  # path to dataset with movie titles
-        model: Optional[Path]=None, # path to model if not train
+        model_type: str = 'collab', # type of model to train, one of `collab`, `embed`
+        model: Path=None, # path to model if not train
         out: Path = './models'):  # folder for output model, by default will save to './models'
     
     assert optype in ['train','eval','pred'], 'incorrect operation type'
@@ -53,7 +54,7 @@ def cli(optype, # operation to peroform, one of 'train', 'eval' or 'pred'
     
     if model: 
         l.info(f"Loading model from {model}")
-        serv = ModelService.load(model, MODEL_CLASS())
+        serv = ModelService.load(model, MODEL_CLASS[model_type]())
     
     l.info(f"loading datasets from {r_path} and {m_path}")
     ds = TfmdDataset(read_movielens(r_path,m_path))
@@ -61,7 +62,7 @@ def cli(optype, # operation to peroform, one of 'train', 'eval' or 'pred'
 
     l.info(f"start operation: {optype}")
     if optype=='train':
-        serv = ModelService(MODEL_CLASS(), ds)
+        serv = ModelService(MODEL_CLASS[model_type](), ds)
         serv.train()
         l.info(f"model trained")
         serv.save(out)
@@ -77,13 +78,13 @@ def cli(optype, # operation to peroform, one of 'train', 'eval' or 'pred'
             f.writelines([f"{line}\n" for line in res])
         l.info(f"preds are saved to {out}")
 
-# %% ../nbs/02_api.ipynb 17
+# %% ../nbs/02_api.ipynb 18
 class PredictRequest(BaseModel):
     '''Request for prediction'''
     movie_names: list
     ratings: list
 
-# %% ../nbs/02_api.ipynb 18
+# %% ../nbs/02_api.ipynb 19
 def add_routes(app, serv):
     @app.get("/api/predict")
     async def predict(body: PredictRequest):
@@ -111,7 +112,7 @@ def add_routes(app, serv):
     async def info():
         return dict(metadata.metadata('hits-recsys'))
 
-# %% ../nbs/02_api.ipynb 19
+# %% ../nbs/02_api.ipynb 20
 def add_logging(app, q): 
     @app.get("/api/log")
     async def log(page: int = -1, n_logs: int = 20):
@@ -119,17 +120,18 @@ def add_logging(app, q):
         tail = (page+1)*n_logs
         return {'logs': logs[max(page*n_logs,-len(logs)) : None if tail<=0 else tail]}
 
-# %% ../nbs/02_api.ipynb 20
+# %% ../nbs/02_api.ipynb 21
 @call_parse
 def serve(host='127.0.0.1',
           port=5000, # port to listen on
+          model_type: str = 'collab', # type of model to train, one of `collab`, `embed`
           model_dir='./models', # directory to load model from
           logs_dir='./logs'): # logs directory
     
     q = LoggingQueue([], 20)
     init_logger(handlers=[l.handlers.QueueHandler(q)], logs_dir=logs_dir)
     app = FastAPI()
-    serv = ModelService.load(model_dir, MODEL_CLASS())
+    serv = ModelService.load(model_dir, MODEL_CLASS[model_type]())
     if not serv.model: 
           l.error("You are trying to run model without providing correct model path! Shutting down...")
           return

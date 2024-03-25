@@ -24,7 +24,7 @@ class SavePT:
     def load(self, fname: str|Path):
         '''Load the model from a file.'''
         obj = torch.load(fname, map_location=default_device())
-        assert self.__class__ == obj.__class__, "Class missmatch"
+        assert self.__class__ == obj.__class__, f"Class missmatch, wanted {self.__class__}, but file has {obj.__class__}"
         self.__dict__.update(obj.__dict__)
 
 # %% ../nbs/01_collab.ipynb 8
@@ -65,25 +65,32 @@ class CollabUserBased(SavePT):
     def __init__(self, device=None): 
         self.device = ifnone(device, default_device())
     
-    def norm(self, x, m, std=None): return (x-m)/std if std else (x-m)/m
-    def denorm(self, x, m, std=None): return x*std+m if std else x*m+m
+    def norm(self, x, m, std=None): 
+        return (x-m)/std if std is not None else (x-m)/m
+    def denorm(self, x, m, std=None): return x*std+m if std is not None else x*m+m
     
     def fit(self, ds):
         '''Fit the model to the given dataset'''
-        A = to_device(torch.sparse_coo_tensor(ds.xs.T,ds.ys,dtype=torch.float32).to_dense())
-        self.means = A.sum(dim=1)/A.count_nonzero(dim=1)
-        mask = A!=0
-        means = ((mask)*self.means[:,None])
-        A[mask] = self.norm(A[mask], means[mask])
+        A = to_device(torch.sparse_coo_tensor(ds.xs.T, ds.ys, dtype=torch.float32).to_dense())
+        
+        # little trick to use methods list nanmean and nanstd
+        A[A==0] = torch.nan
+        self.means = A.nanmean(dim=1)
+        self.std = tensor(np.nanstd(to_cpu(A), 1), device=self.device)
+        A = self.norm(A, self.means[:,None], self.std[:,None])
+        # get zeros back
+        A[A.isnan()] = 0
         self.A = A
 
     def predict(self, xb, yb=None):
         '''Predict the ratings for batch and calculate the loss if yb is given'''
         u, m = xb.T
-        means = self.means[u]
         u, m = self.A[u], self.A[:,m].T
-        ratings = torch.bmm((u @ self.A.T)[:,None,:], m[...,None]).squeeze()/len(u[0])
-        ratings = self.denorm(ratings, means)
+        # cosine similarity
+        u /= u.norm(dim=1)[:,None]
+        normed = (A/A.norm(dim=1)[:,None]).T
+        ratings = torch.bmm((u @ normed)[:,None,:], m[...,None]).squeeze()/torch.count_nonzero(m, dim=1)**0.5
+        ratings = self.denorm(ratings,  self.means[xb.T[0]], self.std[xb.T[0]])
         if yb is not None: return (ratings, F.mse_loss(ratings,yb))
         return ratings
 
@@ -143,8 +150,8 @@ class ModelService:
     def eval(self, ds=None, bs=8192):
         '''Evaluate RMSE for dataset'''
         dls = ifnone(ds,self.ds).dls(bs)
-        loss = torch.stack([self.model.predict(*to_device(b, self.model.device))[1] for b in progress_bar(dls)]).mean()
-        return torch.sqrt(loss).item()
+        loss = torch.stack([self.model.predict(*to_device(b, self.model.device))[1]*len(b[0]) for b in progress_bar(dls)]).mean()
+        return torch.sqrt(loss/len(ds)).item()
 
     def recommend(self, movies: list, ratings: list, topk=5, filter_seen=True):
         '''Recommend top k movies by user wih list of movies and ratings'''
