@@ -36,6 +36,7 @@ class EmbedAdapter:
         self.device = ifnone(device, default_device())
         
     def save(self, fname):
+        Path(fname).parent.mkdir(parents=True,exist_ok=True)
         torch.save(self.model, fname)
     
     def load(self, fname):
