@@ -1,0 +1,152 @@
+[
+  {
+    "objectID": "index.html",
+    "href": "index.html",
+    "title": "hits-recsys",
+    "section": "",
+    "text": "Collaborative filtration with some devops stuff",
+    "crumbs": [
+      "hits-recsys"
+    ]
+  },
+  {
+    "objectID": "index.html#how-to",
+    "href": "index.html#how-to",
+    "title": "hits-recsys",
+    "section": "How to",
+    "text": "How to\n\nInstall\nTo install with pip run\npip install https://github.com/Ssslakter/hits-recsys@main\n\n\nTrain and evaluate\nhits-recsys_cli --help\nusage: hits-recsys_cli [-h] [--model_type MODEL_TYPE] [--model MODEL] [--out OUT] optype r_path m_path\n\npositional arguments:\n  optype                   operation to peroform, one of 'train', 'eval' or 'pred'\n  r_path                   path to dataset with ratings\n  m_path                   path to dataset with movie titles\n\noptions:\n  -h, --help               show this help message and exit\n  --model_type MODEL_TYPE  type of model to train, one of `collab`, `embed` (default: collab)\n  --model MODEL            path to model if not train\n  --out OUT                folder for output model, by default will save to './models' (default: ./models)\nCurrent embedding model was trained on RTX-2060 8 epochs for about 5 minutes",
+    "crumbs": [
+      "hits-recsys"
+    ]
+  },
+  {
+    "objectID": "index.html#run-web-server",
+    "href": "index.html#run-web-server",
+    "title": "hits-recsys",
+    "section": "Run web-server",
+    "text": "Run web-server\nhits-recsys_server --help\nusage: hits-recsys_server [-h] [--host HOST] [--port PORT] [--model_type MODEL_TYPE] [--model_dir MODEL_DIR] [--logs_dir LOGS_DIR]\n\noptions:\n  -h, --help               show this help message and exit\n  --host HOST              (default: 127.0.0.1)\n  --port PORT              port to listen on (default: 5000)\n  --model_type MODEL_TYPE  type of model to train, one of `collab`, `embed` (default: collab)\n  --model_dir MODEL_DIR    directory to load model from (default: ./models)\n  --logs_dir LOGS_DIR      logs directory (default: ./logs)",
+    "crumbs": [
+      "hits-recsys"
+    ]
+  },
+  {
+    "objectID": "index.html#contributing",
+    "href": "index.html#contributing",
+    "title": "hits-recsys",
+    "section": "Contributing",
+    "text": "Contributing\nIf you plan to contribute, you can install editable:\ngit clone https://github.com/Ssslakter/hits-recsys\npip install -e \".[dev]\"",
+    "crumbs": [
+      "hits-recsys"
+    ]
+  },
+  {
+    "objectID": "index.html#start-server-in-a-docker-container",
+    "href": "index.html#start-server-in-a-docker-container",
+    "title": "hits-recsys",
+    "section": "Start server in a docker container",
+    "text": "Start server in a docker container\nTo start with docker you can use docker-compose.yaml wich would build an image and start a web-server\ngit clone https://github.com/Ssslakter/hits-recsys\ncd hits-recsys\ndocker compose up",
+    "crumbs": [
+      "hits-recsys"
+    ]
+  },
+  {
+    "objectID": "collab.html",
+    "href": "collab.html",
+    "title": "Collaborative filtering",
+    "section": "",
+    "text": "source",
+    "crumbs": [
+      "Collaborative filtering"
+    ]
+  },
+  {
+    "objectID": "collab.html#baseline-model",
+    "href": "collab.html#baseline-model",
+    "title": "Collaborative filtering",
+    "section": "Baseline model",
+    "text": "Baseline model\nFor baseline we can use basic user-item matrix. First convert it to dense matrix.  Since number of items and users is small so we can manage it.\n\nA = to_device(torch.sparse_coo_tensor(ds.xs.T,ds.ys,dtype=torch.float32).to_dense())\n\nFor user-based model to predict user score for movie, we compute  \\(v = A_uA^T\\) to get user similarities by taking dot products, and  \\(r = A^T_mv/\\text{sum}(v)\\)\n\nds.xs[:,0].unique().numel(), ds.xs[:,1].unique().numel()\n\n(6040, 3700)\n\n\n\nsource\n\nCollabUserBased\n\n CollabUserBased (device=None)\n\nBasic model for collaborative filtering\n\nmodel = CollabUserBased()\nmodel.fit(ds)\n\n\nmodel.save('../models/collab/model.pt')\nds.save('../models/collab/ds.pt')\n\n\ndls = ds.dls()\nxb, yb = to_device(dls.one_batch())\n\n\nmodel.predict(xb,yb)[1]\n\ntensor(0.9922, device='cuda:0')\n\n\n\nmovies = tensor([ds.encode([s])[0] for s in ds.movie_map if 'star wars' in s.lower()] + [1, 2, 3], device=model.device)[2:]\nratings = tensor([5] * (len(movies) - 3) + [1] * 3, device=model.device, dtype=torch.float)\n\n\nds.decode(movies).pprint()\n\nStar Wars: Episode V - The Empire Strikes Back (1980)\nStar Wars: Episode VI - Return of the Jedi (1983)\n'Night Mother (1986)\n'Til There Was You (1997)\n'burbs, The (1989)\n\n\n\nds.decode(model.recommend(movies,ratings,10)[1]).pprint()\n\nStar Wars: Episode IV - A New Hope (1977)\nRaiders of the Lost Ark (1981)\nMatrix, The (1999)\nSaving Private Ryan (1998)\nShawshank Redemption, The (1994)\nPrincess Bride, The (1987)\nSixth Sense, The (1999)\nBraveheart (1995)\nIndiana Jones and the Last Crusade (1989)\nGodfather, The (1972)\n\n\n\nm_id = 3149\nds.decode([m_id])\n\n(#1) ['Star Wars: Episode V - The Empire Strikes Back (1980)']\n\n\n\nds.decode(model.similar_movies(m_id)).pprint()\n\nStar Wars: Episode IV - A New Hope (1977)\nStar Wars: Episode VI - Return of the Jedi (1983)\nRaiders of the Lost Ark (1981)\nMatrix, The (1999)\nGodfather, The (1972)",
+    "crumbs": [
+      "Collaborative filtering"
+    ]
+  },
+  {
+    "objectID": "collab.html#main-service",
+    "href": "collab.html#main-service",
+    "title": "Collaborative filtering",
+    "section": "Main service",
+    "text": "Main service\n\nsource\n\nModelService\n\n ModelService (model:__main__.CollabUserBased=None, ds=None)\n\nService class for model training, evaluation and predictions. It also provides methods for saving and loading the model.",
+    "crumbs": [
+      "Collaborative filtering"
+    ]
+  },
+  {
+    "objectID": "collab.html#measure-metrics",
+    "href": "collab.html#measure-metrics",
+    "title": "Collaborative filtering",
+    "section": "Measure metrics",
+    "text": "Measure metrics\n\nserv = ModelService.load('../models/collab', CollabUserBased())\n\n\nserv.eval(ds_test, bs=4096*4)\n\n\n\n\n\n\n    \n      \n      100.00% [4/4 00:00&lt;00:00]\n    \n    \n\n\n0.944200873374939\n\n\n\nserv.pred(ds_test)[0:5]\n\n\n\n\n\n\n    \n      \n      100.00% [7/7 00:00&lt;00:00]\n    \n    \n\n\n[3.4092605113983154,\n 3.4861600399017334,\n 3.6127126216888428,\n 3.726555347442627,\n 3.441584348678589]",
+    "crumbs": [
+      "Collaborative filtering"
+    ]
+  },
+  {
+    "objectID": "api.html",
+    "href": "api.html",
+    "title": "API",
+    "section": "",
+    "text": "source\n\n\n\n init_logger (name:str=None, level=20, format:str=None,\n              handlers:list=None, logs_dir='./logs')\n\nInitializes a logger, adds handlers and sets the format. If logs_dir is provided, a file handler is added to the logger.\n\nsource\n\n\n\ndeque with logging.Handler api methods\n\nq = LoggingQueue([],3)\ninit_logger(handlers=[l.handlers.QueueHandler(q)])\n\n\nl.info(\"test 1\")\nl.info(\"test 2\")\nl.info(\"test 3\")\n\n2024-03-25 22:44:18 - root - INFO - test 1\n2024-03-25 22:44:18 - root - INFO - test 2\n2024-03-25 22:44:18 - root - INFO - test 3\n\n\n\nL(q).pprint()\n\n2024-03-25 22:44:18 - root - INFO - test 1\n2024-03-25 22:44:18 - root - INFO - test 2\n2024-03-25 22:44:18 - root - INFO - test 3",
+    "crumbs": [
+      "API"
+    ]
+  },
+  {
+    "objectID": "api.html#logging",
+    "href": "api.html#logging",
+    "title": "API",
+    "section": "",
+    "text": "source\n\n\n\n init_logger (name:str=None, level=20, format:str=None,\n              handlers:list=None, logs_dir='./logs')\n\nInitializes a logger, adds handlers and sets the format. If logs_dir is provided, a file handler is added to the logger.\n\nsource\n\n\n\ndeque with logging.Handler api methods\n\nq = LoggingQueue([],3)\ninit_logger(handlers=[l.handlers.QueueHandler(q)])\n\n\nl.info(\"test 1\")\nl.info(\"test 2\")\nl.info(\"test 3\")\n\n2024-03-25 22:44:18 - root - INFO - test 1\n2024-03-25 22:44:18 - root - INFO - test 2\n2024-03-25 22:44:18 - root - INFO - test 3\n\n\n\nL(q).pprint()\n\n2024-03-25 22:44:18 - root - INFO - test 1\n2024-03-25 22:44:18 - root - INFO - test 2\n2024-03-25 22:44:18 - root - INFO - test 3",
+    "crumbs": [
+      "API"
+    ]
+  },
+  {
+    "objectID": "api.html#cli",
+    "href": "api.html#cli",
+    "title": "API",
+    "section": "CLI",
+    "text": "CLI\n\nsource\n\ncli\n\n cli (optype, r_path, m_path, model_type:str='collab',\n      model:pathlib.Path=None, out:pathlib.Path='./models')\n\n\n\n\n\n\n\n\n\n\n\nType\nDefault\nDetails\n\n\n\n\noptype\n\n\noperation to peroform, one of ‘train’, ‘eval’ or ‘pred’\n\n\nr_path\n\n\npath to dataset with ratings\n\n\nm_path\n\n\npath to dataset with movie titles\n\n\nmodel_type\nstr\ncollab\ntype of model to train, one of collab, embed\n\n\nmodel\nPath\nNone\npath to model if not train\n\n\nout\nPath\n./models\nfolder for output model, by default will save to ‘./models’\n\n\n\n\nurl = 'https://raw.githubusercontent.com/MenshikovDmitry/TSU_AI_Course/main/module_1.%20Recommender%2BDevOps/dataset/'\nfiles = ('ratings_train.dat ratings_test.dat movies.dat users.dat').split()\nd = FastDownload()\n\n\npaths = L(d.download(url+f) for f in files); paths\n\n(#4) [Path('/home/slakter/.fastdownload/archive/ratings_train.dat'),Path('/home/slakter/.fastdownload/archive/ratings_test.dat'),Path('/home/slakter/.fastdownload/archive/movies.dat'),Path('/home/slakter/.fastdownload/archive/users.dat')]\n\n\n\ncli('train', paths[0], paths[2], 'collab', out='../models')\n\n2024-03-25 22:44:38 - root - INFO - loading datasets from /home/slakter/.fastdownload/archive/ratings_train.dat and /home/slakter/.fastdownload/archive/movies.dat\n2024-03-25 22:44:42 - root - INFO - datasets loaded\n2024-03-25 22:44:42 - root - INFO - start operation: train\n2024-03-25 22:44:43 - root - INFO - model trained\n2024-03-25 22:44:43 - root - INFO - model saved to ../models\n\n\n\ncli('pred', paths[1], paths[2], model='../models', out='./out.txt')\n\n2024-03-25 22:45:31 - root - INFO - Loading model from ../models\n2024-03-25 22:45:31 - root - INFO - loading datasets from /home/slakter/.fastdownload/archive/ratings_test.dat and /home/slakter/.fastdownload/archive/movies.dat\n2024-03-25 22:45:32 - root - INFO - datasets loaded\n2024-03-25 22:45:32 - root - INFO - start operation: pred\n2024-03-25 22:45:33 - root - INFO - preds are saved to ./out.txt\n\n\n\n\n\n\n\n    \n      \n      100.00% [7/7 00:01&lt;00:00]",
+    "crumbs": [
+      "API"
+    ]
+  },
+  {
+    "objectID": "api.html#web-server",
+    "href": "api.html#web-server",
+    "title": "API",
+    "section": "Web server",
+    "text": "Web server\n\nsource\n\nPredictRequest\n\n PredictRequest (movie_names:list, ratings:list)\n\nRequest for prediction\n\nsource\n\n\nadd_routes\n\n add_routes (app, serv)\n\n\nsource\n\n\nadd_logging\n\n add_logging (app, q)\n\n\nsource\n\n\nserve\n\n serve (host='127.0.0.1', port=5000, model_type:str='collab',\n        model_dir='./models', logs_dir='./logs')\n\n\n\n\n\n\n\n\n\n\n\nType\nDefault\nDetails\n\n\n\n\nhost\nstr\n127.0.0.1\n\n\n\nport\nint\n5000\nport to listen on\n\n\nmodel_type\nstr\ncollab\ntype of model to train, one of collab, embed\n\n\nmodel_dir\nstr\n./models\ndirectory to load model from\n\n\nlogs_dir\nstr\n./logs\nlogs directory\n\n\n\n\nserve(port=5000, model_dir='../models')\n\n2024-03-16 16:24:39 - uvicorn.error - INFO - Started server process [57908]\n2024-03-16 16:24:39 - uvicorn.error - INFO - Waiting for application startup.\n2024-03-16 16:24:39 - uvicorn.error - INFO - Application startup complete.\n2024-03-16 16:24:39 - uvicorn.error - INFO - Uvicorn running on http://127.0.0.1:5000 (Press CTRL+C to quit)\n2024-03-16 16:24:41 - uvicorn.access - INFO - 127.0.0.1:50096 - \"GET /api/info HTTP/1.1\" 200\n2024-03-16 16:24:42 - uvicorn.access - INFO - 127.0.0.1:50106 - \"GET /api/predict HTTP/1.1\" 200\n2024-03-16 16:24:42 - uvicorn.access - INFO - 127.0.0.1:50116 - \"GET /api/log HTTP/1.1\" 200\n2024-03-16 16:24:43 - root - INFO - model reloaded\n2024-03-16 16:24:43 - uvicorn.access - INFO - 127.0.0.1:50120 - \"POST /api/reload HTTP/1.1\" 200\n2024-03-16 16:24:44 - root - INFO - getting similar movies to Star Trek III: The Search for Spock (1984)\n2024-03-16 16:24:44 - uvicorn.access - INFO - 127.0.0.1:36992 - \"GET /api/similar?movie_name=Star%20Trek%20III:%20The%20Search%20for%20Spock%20(1984) HTTP/1.1\" 200\n2024-03-16 16:24:46 - uvicorn.error - INFO - Shutting down\n2024-03-16 16:24:46 - uvicorn.error - INFO - Waiting for application shutdown.\n2024-03-16 16:24:46 - uvicorn.error - INFO - Application shutdown complete.\n2024-03-16 16:24:46 - uvicorn.error - INFO - Finished server process [57908]",
+    "crumbs": [
+      "API"
+    ]
+  },
+  {
+    "objectID": "embed.html",
+    "href": "embed.html",
+    "title": "Embeddings",
+    "section": "",
+    "text": "url = 'https://raw.githubusercontent.com/MenshikovDmitry/TSU_AI_Course/main/module_1.%20Recommender%2BDevOps/dataset/'\nfiles = ('ratings_train.dat ratings_test.dat movies.dat users.dat').split()\nd = FastDownload()\npaths = L(d.download(url+f) for f in files); paths\n\n(#4) [Path('/home/slakter/.fastdownload/archive/ratings_train.dat'),Path('/home/slakter/.fastdownload/archive/ratings_test.dat'),Path('/home/slakter/.fastdownload/archive/movies.dat'),Path('/home/slakter/.fastdownload/archive/users.dat')]\ndf, df_test = read_movielens(paths[0],paths[2]), read_movielens(paths[1],paths[2])\ndf.head()\n\n\n\n\n\n\n\n\n\nuserId\nmovieId\nrating\ntitle\n\n\n\n\n0\n3539\n2478\n5\nThree Amigos! (1986)\n\n\n1\n1358\n2478\n1\nThree Amigos! (1986)\n\n\n2\n2565\n2478\n1\nThree Amigos! (1986)\n\n\n3\n4819\n2478\n2\nThree Amigos! (1986)\n\n\n4\n5763\n2478\n1\nThree Amigos! (1986)\nds = TfmdDataset(df)\nsource",
+    "crumbs": [
+      "Embeddings"
+    ]
+  },
+  {
+    "objectID": "embed.html#adapter-for-api",
+    "href": "embed.html#adapter-for-api",
+    "title": "Embeddings",
+    "section": "Adapter for api",
+    "text": "Adapter for api\n\nsource\n\nEmbedAdapter\n\n EmbedAdapter (device=None)\n\nAdapter for embedding model to support api for collaboritive filtering with matrix\n\nmodel = EmbedAdapter()\n\n\nmodel.fit(ds, n_epoch=1, cbs=[ShowGraphCallback()])\n\n\nmodel.fit(ds, n_epoch=8, cbs=[ShowGraphCallback()])\n\n\n\n\n\n\n\n\n\nepoch\ntrain_loss\nvalid_loss\ntime\n\n\n\n\n0\n0.842268\n0.823293\n00:15\n\n\n1\n0.779737\n0.709927\n00:15\n\n\n2\n0.729909\n0.630949\n00:16\n\n\n3\n0.690915\n0.567139\n00:15\n\n\n4\n0.632658\n0.512022\n00:15\n\n\n5\n0.570096\n0.474448\n00:15\n\n\n6\n0.505491\n0.457023\n00:16\n\n\n7\n0.469349\n0.454841\n00:15\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nmodel.save('../models/embed/model.pt')\nds.save('../models/embed/ds.pt')\n\n\nxb, yb = to_device(dls.one_batch())\n\n\nmodel.predict(xb,yb)[1]\n\ntensor(0.4622, device='cuda:0')\n\n\n\nmovs = tensor([ds.encode([s])[0] for s in ds.movie_map if 'star wars' in s.lower()] + [1, 2, 3])[2:]\nrats = tensor([5] * (len(movs) - 3) + [1] * 3, dtype=torch.float)\nmovs, rats = to_device((movs, rats))\n\n\nds.decode(model.recommend(movs,rats,10)[1]).pprint()\n\nStar Wars: Episode IV - A New Hope (1977)\nStar Wars: Episode I - The Phantom Menace (1999)\nRaiders of the Lost Ark (1981)\nSoft Toilet Seats (1999)\nIndiana Jones and the Last Crusade (1989)\nX-Men (2000)\nDazed and Confused (1993)\nSuperman (1978)\nBatman: Mask of the Phantasm (1993)\nStar Trek: First Contact (1996)\n\n\n\nm_id = 3149\nds.decode([m_id])\nds.decode(model.similar_movies(m_id)).pprint()\n\nStar Wars: Episode IV - A New Hope (1977)\nStar Wars: Episode VI - Return of the Jedi (1983)\nStar Wars: Episode I - The Phantom Menace (1999)\nRaiders of the Lost Ark (1981)\nIndiana Jones and the Last Crusade (1989)\n\n\n\nserv = ModelService.load('../models/embed', EmbedAdapter())\n\n\nserv.eval(ds_test, bs=1000)\n\n\n\n\n\n\n    \n      \n      100.00% [51/51 00:00&lt;00:00]\n    \n    \n\n\n0.8386407494544983",
+    "crumbs": [
+      "Embeddings"
+    ]
+  }
+]
