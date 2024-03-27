@@ -9,7 +9,7 @@ import logging as l
 from fastcore.all import *
 from .collab import *
 from pathlib import Path
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from importlib import metadata
 import uvicorn
@@ -88,11 +88,18 @@ class PredictRequest(BaseModel):
 def add_routes(app, serv):
     @app.get("/api/predict")
     async def predict(body: PredictRequest):
-        return serv.recommend(body.movie_names, body.ratings, 20)
+        if max(body.ratings) > 5 or min(body.ratings) < 0: 
+            raise HTTPException(400, f"Ratings not in correct ranges")
+        if len(body.ratings) != len(body.movie_names):  
+            raise HTTPException(400, f"Not correct number of ratings")
+        try:
+            return serv.recommend(body.movie_names, body.ratings, 20)
+        except KeyError as e:
+            raise HTTPException(400, f"Movie {e.args[0]} not found")
 
     @app.post("/api/reload")
     async def reload(): 
-        serv.load(app.location)
+        serv.load(app.location, app.model_cls())
         l.info("model reloaded")
 
     @app.get("/api/similar")
@@ -101,7 +108,7 @@ def add_routes(app, serv):
         try:
             return serv.similar_movies(movie_name)
         except KeyError:
-            return {"error": f"Movie {movie_name} not found"}
+            raise HTTPException(404, f"Movie {movie_name} not found")
     
     @app.get("/api/movies")
     async def movies(prefix:str, page:int=0):
@@ -131,11 +138,12 @@ def serve(host='127.0.0.1',
     q = LoggingQueue([], 20)
     init_logger(handlers=[l.handlers.QueueHandler(q)], logs_dir=logs_dir)
     app = FastAPI()
-    serv = ModelService.load(model_dir, MODEL_CLASS[model_type]())
+    app.location = model_dir
+    app.model_cls = MODEL_CLASS[model_type]
+    serv = ModelService.load(model_dir, app.model_cls())
     if not serv.model: 
           l.error("You are trying to run model without providing correct model path! Shutting down...")
           return
-    app.location = model_dir
     add_routes(app, serv)
     add_logging(app,q)
     serv.save(model_dir)
