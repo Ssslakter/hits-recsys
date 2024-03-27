@@ -60,7 +60,7 @@ class TfmdDataset(SavePT):
         '''Create a test dataset with the given DataFrame'''
         return self.__class__(test_df, self.movie_map,self.user_map)
 
-# %% ../nbs/01_collab.ipynb 17
+# %% ../nbs/01_collab.ipynb 18
 class CollabUserBased(SavePT):
     '''Basic model for collaborative filtering'''
     def __init__(self, device=None): 
@@ -115,7 +115,7 @@ class CollabUserBased(SavePT):
         '''Return topk similar movies to the given movie_id'''
         return (self.A[:,movie_id].squeeze(-1) @ self.A).topk(topk+1).indices[1:]
 
-# %% ../nbs/01_collab.ipynb 28
+# %% ../nbs/01_collab.ipynb 29
 class ModelService:
     '''Service class for model training, evaluation and predictions. It also provides methods for saving and loading the model.'''
     def __init__(self, model: CollabUserBased=None, ds=None):
@@ -151,7 +151,7 @@ class ModelService:
     def eval(self, ds=None, bs=8192):
         '''Evaluate RMSE for dataset'''
         dls = ifnone(ds,self.ds).dls(bs)
-        loss = torch.stack([self.model.predict(*to_device(b, self.model.device))[1]*len(b[0]) for b in progress_bar(dls)]).mean()
+        loss = torch.stack([self.model.predict(*to_device(b, self.model.device))[1]*len(b[0]) for b in progress_bar(dls)]).sum()
         return torch.sqrt(loss/len(ds)).item()
 
     def recommend(self, movies: list, ratings: list, topk=5, filter_seen=True):
