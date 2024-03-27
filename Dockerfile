@@ -5,6 +5,8 @@ WORKDIR /app
 ADD ./requirements.txt .
 RUN pip install -r requirements.txt
 
+ARG MODEL_DIR='./models/embed'
+ARG MODEL_TYPE='embed'
 ADD . /app
 
 RUN pip install '.'
@@ -13,4 +15,4 @@ RUN pip install '.'
 EXPOSE 5000
 
 # Run the command to start your application
-CMD ["hits-recsys_server", "--host","0.0.0.0"]
+CMD ["hits-recsys_server", "--host","0.0.0.0", '--model_type', MODEL_TYPE, '--model_dir', MODEL_DIR]
