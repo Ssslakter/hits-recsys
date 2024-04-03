@@ -42,9 +42,9 @@ class LoggingQueue(deque):
 MODEL_CLASS ={'collab': CollabUserBased, 'embed': EmbedAdapter}
 
 @call_parse
-def cli(optype, # operation to peroform, one of 'train', 'eval' or 'pred'
-        r_path, # path to dataset with ratings
-        m_path,  # path to dataset with movie titles
+def cli(optype: str, # operation to peroform, one of 'train', 'eval' or 'pred'
+        r_path: Path, # path to dataset with ratings
+        m_path: Path,  # path to dataset with movie titles
         model_type: str = 'collab', # type of model to train, one of `collab`, `embed`
         model: Path=None, # path to model if not train
         out: Path = './models'):  # folder for output model, by default will save to './models'
@@ -129,11 +129,11 @@ def add_logging(app, q):
 
 # %% ../nbs/02_api.ipynb 20
 @call_parse
-def serve(host='127.0.0.1',
-          port=5000, # port to listen on
-          model_type: str = 'collab', # type of model to train, one of `collab`, `embed`
-          model_dir='./models', # directory to load model from
-          logs_dir='./logs'): # logs directory
+def serve(host: str='127.0.0.1',
+          port: int=5000, # port to listen on
+          model_type:str = 'collab', # type of model to train, one of `collab`, `embed`
+          model_dir:str='./models', # directory to load model from
+          logs_dir:str='./logs'): # logs directory
     
     q = LoggingQueue([], 20)
     init_logger(handlers=[l.handlers.QueueHandler(q)], logs_dir=logs_dir)
